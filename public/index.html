@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="theme-color" content="#0a3d91">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlinkChat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* 🔄 Spinner Animation */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      margin-left: 8px;
+      vertical-align: middle;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body class="home">
+  <div class="home-container">
+    <h1 class="title">BlinkChat 💬</h1>
+    <p class="subtitle">Create a private chat room with one click.<br>No sign-up. End-to-end encrypted.</p>
+
+    <button id="createRoomBtn" class="btn primary">Create Room</button>
+
+    <div id="linkDisplay" class="link-display"></div>
+
+    <p id="info" style="margin-top: 25px; font-size: 0.85rem; color: #333;">
+      🔒 Messages are encrypted in your browser.<br>
+      No one — not even us — can read them.
+    </p>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/crypto-js/crypto-js.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+  // --- app.js functionality embedded for spinner support ---
+  const socket = io();
+  const createBtn = document.getElementById('createRoomBtn');
+  const linkDisplay = document.getElementById('linkDisplay');
+
+  function randomHex(bytes = 16) {
+    const arr = new Uint8Array(bytes);
+    window.crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  createBtn.addEventListener('click', () => {
+    createBtn.disabled = true;
+    createBtn.innerHTML = 'Creating Room <span class="spinner"></span>';
+    socket.emit('createRoom');
+  });
+
+socket.on('roomCreated', ({ roomId, expireAt }) => {
+  const secretKey = CryptoJS.lib.WordArray.random(16).toString();
+
+  const link = `${window.location.origin}/join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
+
+  linkDisplay.innerHTML = `
+    <p>Share this link with your friend:</p>
+    <input type="text" value="${link}" readonly onclick="this.select()" />
+    <p style="font-size:0.8rem;color:#555;margin-top:8px;">
+      Room expires at: ${new Date(expireAt).toLocaleTimeString()}
+    </p>
+  `;
+
+  // Countdown
+  let countdown = 40;
+  const countdownEl = document.createElement("p");
+  countdownEl.id = "countdown";
+  countdownEl.style.color = "#0a3d91";
+  countdownEl.style.fontWeight = "600";
+  countdownEl.style.marginTop = "10px";
+  countdownEl.textContent = `Redirecting to name entry in ${countdown}s...`;
+  linkDisplay.appendChild(countdownEl);
+
+  const t = setInterval(() => {
+    countdown--;
+    countdownEl.textContent = `Redirecting to name entry in ${countdown}s...`;
+
+    if (countdown <= 0) {
+      clearInterval(t);
+      window.location.href = `/join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
+    }
+  }, 1000);
+});
+
+
+</script>
+<script>
+document.addEventListener('mousemove', e => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 30;
+  const y = (e.clientY / window.innerHeight - 0.5) * 30;
+  document.body.style.setProperty('--x', `${x}px`);
+  document.body.style.setProperty('--y', `${y}px`);
+});
+</script>
+<script>
+if (window.DeviceOrientationEvent) {
+  window.addEventListener('deviceorientation', e => {
+    const x = (e.gamma / 30) * 30; // left-right tilt
+    const y = (e.beta / 30) * 30;  // forward-back tilt
+    document.body.style.setProperty('--x', `${x}px`);
+    document.body.style.setProperty('--y', `${y}px`);
+  });
+}
+</script>
+
+</body>
+</html>
