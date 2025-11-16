@@ -58,12 +58,22 @@
     const link = `${window.location.origin}/join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
 
     linkDisplay.innerHTML = `
-      <p>Share this link with your friend:</p>
-      <input type="text" value="${link}" readonly onclick="this.select()" />
-      <p style="font-size:0.8rem;color:#555;margin-top:8px;">
-        Room expires at: ${new Date(expireAt).toLocaleTimeString()}
-      </p>
-    `;
+  <p>Share this link with your friend:</p>
+
+  <div style="display:flex;gap:10px;align-items:center;">
+    <input id="roomLinkInput" type="text" value="${link}" readonly style="flex:1;" />
+    <button id="copyBtn" class="btn secondary" style="padding:8px 12px;">Copy</button>
+  </div>
+
+  <p style="font-size:0.8rem;color:#555;margin-top:8px;">
+    Room expires at: ${new Date(expireAt).toLocaleTimeString()}
+  </p>
+
+  <p id="copyStatus" style="font-size:0.8rem;color:green;margin-top:6px;display:none;">
+    ✔ Copied!
+  </p>
+`;
+
 
     let countdown = 40;
     const countdownEl = document.createElement("p");
@@ -84,6 +94,24 @@
       }
     }, 1000);
   });
+  document.addEventListener("click", function (e) {
+  if (e.target && e.target.id === "copyBtn") {
+    const linkInput = document.getElementById("roomLinkInput");
+    const copyStatus = document.getElementById("copyStatus");
+
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(linkInput.value)
+      .then(() => {
+        copyStatus.style.display = "block";
+        setTimeout(() => {
+          copyStatus.style.display = "none";
+        }, 1500);
+      })
+      .catch(() => alert("Failed to copy link"));
+  }
+});
   </script>
 
   <!-- JOIN ROOM POPUP JS -->
