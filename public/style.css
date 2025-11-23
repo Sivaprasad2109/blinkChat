@@ -1,190 +1,297 @@
 /* ===========================================================
-   FULL FINAL STYLE.CSS — includes home, join (popup), chat + timer
+   SMessage FINAL FULLY RESPONSIVE AND AUTO-EXPAND STYLE.CSS
    =========================================================== */
 
 /* -------------------------
-   Global
+   Global & Base
    ------------------------- */
-* { box-sizing: border-box; margin:0; padding:0; font-family:"Poppins",sans-serif; }
-html,body { height:100%; width:100%; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: "Poppins", sans-serif;
+}
+html, body {
+    height: 100%;
+    width: 100%;
+}
 
 /* -------------------------
-   Page background
+   Page background & Animation
    ------------------------- */
-.sm-page-bg{
-  min-height:100vh;
-  padding:32px;
-  background: linear-gradient(135deg,#0a3d91,#1e62d0,#2f8bff);
-  background-size:400% 400%;
-  animation: smGradientMove 12s ease infinite;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
+.sm-page-bg {
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, #0a3d91, #1e62d0, #2f8bff);
+    background-size: 400% 400%;
+    animation: smGradientMove 12s ease infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
 }
-.sm-page-bg::before{
-  content:"";
-  position:absolute; inset:0;
-  background-image: radial-gradient(rgba(255,255,255,0.18) 2px, transparent 2px);
-  background-size:50px 50px;
-  opacity:0.22;
-  pointer-events:none;
+.sm-page-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.18) 2px, transparent 2px);
+    background-size: 50px 50px;
+    opacity: 0.22;
+    pointer-events: none;
 }
-@keyframes smGradientMove { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-
-/* -------------------------
-   Card / container
-   ------------------------- */
-.sm-center-wrap{ width:100%; display:flex; justify-content:center; padding:8px; }
-.sm-app-card{
-  width: min(94%,720px);
-  background:#fff;
-  border-radius:20px;
-  padding:22px;
-  box-shadow:0 14px 36px rgba(0,0,0,0.18);
-  display:flex; flex-direction:column; gap:14px; align-items:center;
-  animation:fadeIn .6s ease;
+@keyframes smGradientMove {
+    0% { background-position: 0% 50% }
+    50% { background-position: 100% 50% }
+    100% { background-position: 0% 50% }
 }
 @keyframes fadeIn{ from{opacity:0; transform:scale(.98)} to{opacity:1; transform:scale(1)} }
 
-/* header */
-.sm-card-header{ text-align:center; }
-.sm-app-title{ font-size:1.8rem; color:#0a3d91; margin-bottom:6px; }
-.sm-subtitle{ color:#56637a; font-size:0.95rem; }
-
-/* disclaimer */
-.sm-disclaimer-box{
-  width:100%; background:#fafafa; border-radius:10px; padding:12px; font-size:.88rem;
-  color:#455670; border:1px solid #e5e5e5; text-align:center;
-}
-
-/* data safety */
-.sm-data-safety{
-  width:100%; background:#fff4c7; border-radius:12px; padding:16px; border:1px solid #f3d68a;
-}
-.sm-data-safety h3{ text-align:center; font-size:1rem; color:#b57a00; margin-bottom:8px; }
-.sm-data-safety ul{ margin-left:18px; color:#2b3a57; font-size:.92rem; }
-
 /* -------------------------
-   Buttons (both navy-blue, premium)
+   Card / Container (Home & Join)
    ------------------------- */
-.sm-cta-row{ width:100%; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
-.sm-btn{
-  border:0; cursor:pointer; padding:14px 20px; border-radius:16px; font-size:.95rem; font-weight:600;
-  position:relative; overflow:hidden; transition:all .25s ease;
-  background:#0a53c9; color:#fff; box-shadow:0 6px 20px rgba(10,83,201,0.35);
+.sm-center-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 8px;
 }
-.sm-big{ width:100%; max-width:260px; }
-
-/* shine sweep */
-.sm-btn::before{
-  content:""; position:absolute; top:0; left:-80%; width:50%; height:100%;
-  background:linear-gradient(120deg, transparent, rgba(255,255,255,0.5), transparent);
-  transform:skewX(-20deg); transition:0.6s;
-}
-.sm-btn:hover::before{ left:130%; }
-
-/* hover glow & scale */
-.sm-btn:hover{
-  background:#0844a8 !important; transform:scale(1.065);
-  box-shadow:
-    0 0 16px rgba(255,255,255,0.38),
-    0 0 32px rgba(10,83,201,0.55),
-    0 0 45px rgba(10,83,201,0.45);
+.sm-app-card {
+    width: min(94%, 720px);
+    background: #fff;
+    border-radius: 20px;
+    padding: 22px;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+    animation: fadeIn .6s ease;
 }
 
-/* copy button small */
-.sm-btn-copy{ background:linear-gradient(180deg,#2f8bff,#1e62d0); color:#fff; padding:10px 12px; border-radius:10px; }
+/* FIX: Standalone Input for Join Room (applies to join.html) */
+.sm-app-card > .sm-message-input {
+    width: 100% !important;
+    margin-bottom: 10px;
+    font-size: 1rem !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    border: 1px solid #d7e1f5 !important;
+}
 
-/* -------------------------
-   Link display
-   ------------------------- */
-.sm-link-display{ width:100%; }
-.sm-link-box{ display:flex; flex-direction:column; gap:10px; }
-.sm-link-input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #d8e3fb; text-align:center; font-size:.88rem; }
-.sm-link-label{ font-size:.9rem; color:#34405a; }
+/* Header */
+.sm-card-header { text-align: center; }
+.sm-app-title { font-size: 1.8rem; color: #0a3d91; margin-bottom: 6px; }
+.sm-subtitle { color: #56637a; font-size: 0.95rem; }
+
+/* Data Safety */
+.sm-data-safety { width: 100%; background: #fff4c7; border: 1px solid #f3d68a; border-radius: 12px; padding: 16px; }
+.sm-data-safety h3 { text-align: center; font-size: 1rem; color: #b57a00; margin-bottom: 8px; }
+.sm-data-safety ul { margin-left: 18px; color: #2b3a57; font-size: 0.92rem; text-align: left; }
+
+/* Buttons */
+.sm-cta-row { width: 100%; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.sm-btn {
+    border: 0; cursor: pointer; padding: 14px 20px; border-radius: 16px; font-size: 0.95rem; font-weight: 600;
+    position: relative; overflow: hidden; transition: all .25s ease;
+    background: #0a53c9; color: #fff; box-shadow: 0 6px 20px rgba(10,83,201,0.35);
+}
+.sm-big { width: 100%; max-width: 260px; }
+.sm-btn:hover { background:#0844a8 !important; transform:scale(1.065); }
+.sm-btn-copy { background:linear-gradient(180deg,#2f8bff,#1e62d0); color:#fff; padding:10px 12px; border-radius:10px; }
+
+/* Link Display Row Fix */
+.sm-link-row { display: flex; gap: 8px; width: 100%; }
+.sm-link-input { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid #d8e3fb; text-align: center; font-size: 0.88rem; }
+.sm-btn-copy { flex-shrink: 0; }
 .sm-meta{ display:flex; gap:10px; font-size:.85rem; color:#65728b; }
-.sm-copy-status{ font-size:.9rem; color:green; opacity:0; transition:opacity .18s; }
+
+/* Footer */
+.sm-card-footer { width: 100%; margin-top: 16px; text-align: center; }
+.sm-footer-links { display: flex; justify-content: space-between; }
+.sm-footer-links a { color: #0a3d91; text-decoration: none; font-size: 0.9rem; }
+
 
 /* -------------------------
-   JOIN popup modal (small)
+   JOIN popup modal (small) - ANIMATION READY FIX
    ------------------------- */
-.sm-modal{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; place-items:center; z-index:999; }
+.sm-modal{ 
+    position:fixed; 
+    inset:0; 
+    /* Base Invisible State (Ready for transition) */
+    opacity: 0; 
+    visibility: hidden; 
+    background:rgba(0,0,0,.0);
+    place-items:center; 
+    z-index:999; 
+    /* Transition opacity and visibility */
+    transition: background 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Modal Inner Box - Initial State */
 .sm-modal-inner{
   width:92%; max-width:420px; background:#fff; padding:18px; border-radius:14px; box-shadow:0 12px 36px rgba(0,0,0,.2);
+  /* Initial invisible state... */
 }
-.sm-modal-inner input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #d9e3f7; }
+
+/* ADDED: Input inside the modal inner box (medium size fix) */
+.sm-modal-inner input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid #d9e3f7;
+    font-size: 1rem; 
+    margin-top: 8px; 
+    margin-bottom: 15px; 
+}
+
+/* State when JS adds the class: ACTIVATE THE MODAL */
+.sm-modal.sm-modal-open {
+    visibility: visible;
+    opacity: 1; 
+    background: rgba(0,0,0,.45); /* Darken the background */
+    display: grid; 
+}
+
+/* Modal Inner Box - Final (Open) State */
+.sm-modal.sm-modal-open .sm-modal-inner {
+    opacity: 1; 
+    transform: scale(1) translateY(0);
+}
+
 
 /* -------------------------
-   Footer
+   CHAT — Container & Header
    ------------------------- */
-.sm-card-footer{ width:100%; margin-top:16px; text-align:center; }
-.sm-footer-links{ display:flex; justify-content:space-between; }
-.sm-footer-links a{ color:#0a3d91; text-decoration:none; font-size:.9rem; }
-.sm-footer-note{ color:#6b7b95; margin-top:6px; font-size:.82rem; }
 
-/* ===========================================================
-   CHAT — Classic card layout (header with timer, messages, input)
-   =========================================================== */
-
-.sm-chat-wrap{ width:100%; max-width:920px; margin:auto; display:flex; flex-direction:column; gap:12px; padding:8px; }
-
-/* header with room meta & timer */
-.sm-chat-header{
-  width:100%; display:flex; align-items:center; justify-content:space-between;
-  gap:12px; padding:16px; background:linear-gradient(135deg,#0a3d91,#1e62d0);
-  color:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.18);
-}
-.sm-chat-title{ font-weight:700; font-size:1.05rem; }
-.sm-chat-sub{ font-size:.9rem; opacity:.95; }
-
-/* room meta (on right side) */
-.sm-room-meta{ display:flex; align-items:center; gap:10px; font-size:.95rem; color:rgba(255,255,255,0.95); }
-.sm-room-id{ opacity:.95; font-weight:600; }
-.sm-timer{
-  background: rgba(255,255,255,0.12);
-  padding:6px 10px; border-radius:10px; font-weight:600; color:#fff; font-size:0.92rem;
-  display:inline-flex; align-items:center; gap:8px;
+.sm-chat-wrap {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0;
 }
 
-/* white chat card below header */
-.sm-chat-card{
-  background:#fff; border-radius:16px; padding:12px; box-shadow:0 14px 36px rgba(0,0,0,0.08);
-  min-height:60vh; display:flex; flex-direction:column; gap:8px;
+.sm-chat-header {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 20px; background: linear-gradient(135deg, #0a3d91, #1e62d0); color: #fff;
+    border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+.sm-room-meta { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+
+.sm-chat-card {
+    background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
+    min-height: 65vh; max-height: 80vh; display: flex; flex-direction: column; gap: 8px;
 }
 
 /* messages area */
-.sm-messages{ flex:1; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:auto; }
+.sm-messages { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 
 /* message bubbles */
-.sm-msg{ max-width:80%; padding:10px 14px; border-radius:14px; font-size:.95rem; animation:smPop .18s ease-out; line-height:1.3; word-break:break-word; }
-@keyframes smPop { from{transform:scale(.93); opacity:0} to{transform:scale(1); opacity:1} }
+.sm-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 0.95rem; line-height: 1.3; word-break: break-word; animation:smPop .18s ease-out; }
 
-.sm-msg.left{ align-self:flex-start; background:#eef3ff; color:#0a3d91; border-bottom-left-radius:6px; }
-.sm-msg.right{ align-self:flex-end; background:#0a53c9; color:#fff; border-bottom-right-radius:6px; }
-.sm-msg.center{ align-self:center; background:transparent; color:#6c84c5; font-size:.85rem; }
+/* FIX: Message Alignment - Sender on right, Receiver on left */
+.sm-msg.left {
+    align-self: flex-start;
+    background: #eef3ff;
+    color: #0a3d91;
+    border-bottom-left-radius: 6px;
+}
+.sm-msg.right {
+    align-self: flex-end;
+    background: #0a53c9;
+    color: #fff;
+    border-bottom-right-radius: 6px;
+}
+.sm-msg.center {
+    align-self: center;
+    background: transparent;
+    color: #6c84c5;
+    font-size: 0.85rem;
+}
 
-/* input row */
-.sm-input-row{ display:flex; gap:8px; align-items:center; padding-top:6px; border-top:1px solid #eef3ff; }
-.sm-message-input{ flex:1; padding:10px 12px; border-radius:12px; border:1px solid #d7e1f5; font-size:.95rem; }
-.sm-emoji-btn{ background:none; border:0; font-size:1.2rem; cursor:pointer; }
-.sm-send-btn{ background:#0a53c9; color:#fff; border:0; padding:10px 14px; border-radius:12px; }
+/* Input Row - CRITICAL: Flexbox for alignment */
+.sm-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center; /* Ensures perfect vertical alignment */
+    padding-top: 10px;
+    border-top: 1px solid #eef3ff;
+}
 
-/* small meta under chat */
-.sm-chat-note{ text-align:center; color:#6b7b95; font-size:.82rem; margin-top:8px; }
+/* ----------------------------------------------------
+   MODIFIED FOR AUTO-EXPAND TEXTAREA 
+   ---------------------------------------------------- */
+.sm-message-input {
+    flex: 1; 
+    padding: 12px 12px; /* Uniform padding for alignment */
+    border-radius: 12px;
+    border: 1px solid #d7e1f5;
+    font-size: 0.95rem;
+    
+    /* Key properties for auto-expand functionality */
+    resize: none; /* Disables the manual resize handle */
+    overflow-y: hidden; /* Hides scrollbar when content is short */
+    max-height: 120px; /* Limits the max height before it shows scrollbar */
+}
+/* ---------------------------------------------------- */
+
+.sm-emoji-btn, .sm-send-btn {
+    flex-shrink: 0;
+    padding: 12px 14px; /* Matches vertical padding of input */
+    border-radius: 12px;
+}
+.sm-send-btn { background: #0a53c9; color: #fff; border: 0; }
+.sm-emoji-btn { background: none; border: 0; font-size: 1.2rem; cursor: pointer; padding: 0; }
+
+/* Footer links for chat page (outside card) */
+.sm-chat-wrap + footer a {
+    color: #fff;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
 
 /* -------------------------
-   Responsive tweaks
+   Responsive Tweaks (Mobile Priority)
    ------------------------- */
-@media (max-width:900px){
-  .sm-app-card{ width:94%; padding:18px; }
-  .sm-big{ max-width:220px; }
-  .sm-chat-header{ flex-direction:column; align-items:flex-start; gap:8px; }
-  .sm-room-meta{ width:100%; justify-content:space-between; }
+
+@media (max-width: 600px) {
+    /* Page background padding reduction */
+    .sm-page-bg { padding: 14px; }
+
+    /* Card sizing */
+    .sm-app-card { width: 100%; border-radius: 16px; padding: 18px; gap: 12px; }
+    .sm-app-title { font-size: 1.6rem; }
+
+    /* Chat Wrap Sizing and Margins */
+    .sm-chat-wrap { max-width: 96% !important; margin: 0 auto !important; gap: 8px; }
+    .sm-chat-header, .sm-chat-card { border-radius: 10px; }
+
+    /* Tighter Input Row Padding */
+    .sm-input-row { padding-top: 8px; gap: 6px; }
+
+    /* Ensure text input height doesn't get too large on tiny screens */
+    .sm-message-input {
+        max-height: 100px; /* Slightly reduced max height for smaller screens */
+        padding: 10px 10px; 
+    }
+    .sm-send-btn { padding: 10px 14px; }
+
+    /* Reduce content density */
+    .sm-messages { padding: 8px; gap: 8px; }
+    .sm-msg { font-size: 0.9rem; }
+    
+    /* Header components */
+    .sm-chat-header { padding: 12px; }
+    .sm-chat-title { font-size: 1rem; }
+    .sm-chat-sub { font-size: 0.85rem; }
+    .sm-room-meta { font-size: 0.85rem; gap: 6px; }
 }
-@media (max-width:480px){
-  .sm-app-card{ border-radius:14px; padding:14px; }
-  .sm-chat-card{ padding:10px; border-radius:12px; min-height:50vh; }
-  .sm-btn{ padding:12px 14px; font-size:.92rem; }
-  .sm-big{ max-width:100%; }
+
+@media (max-width: 400px) {
+    /* Extreme mobile screens */
+    .sm-chat-wrap { max-width: 100% !important; padding-left: 8px; padding-right: 8px; }
+    .sm-chat-header, .sm-chat-card { padding-left: 10px; padding-right: 10px; }
+    .sm-room-meta { flex-wrap: wrap; justify-content: flex-end; }
 }
