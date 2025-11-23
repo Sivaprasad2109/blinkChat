@@ -57,8 +57,24 @@
           </div>
         </div>
       </div>
+      <div id="termsModal" class="sm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="sm-modal-inner" role="document" style="max-width: 500px;">
+    <h4>SMessage Terms & Conditions</h4>
+    <div style="height: 180px; overflow-y: scroll; padding: 10px; border: 1px solid #ddd; font-size: 0.85rem; line-height: 1.4;">
+        <p>By using SMessage, you agree to these Terms of Service. You must be at least 13 years old to use this service. You agree not to use this service for illegal, harmful, or abusive activities. SMessage is not responsible for the content of encrypted communications. All messages are temporary and deleted upon room expiration.</p>
+        <p style="margin-top: 10px;">Please read the full <a href="terms.html" target="_blank" style="color:#0a53c9;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#0a53c9;">Privacy Policy</a> before proceeding.</p>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+        <input type="checkbox" id="acceptTermsCheckbox" style="width: 20px; height: 20px; margin: 0;">
+        <label for="acceptTermsCheckbox" style="font-size: 0.95rem; color: #333;">I have read and agree to the Terms & Conditions.</label>
+    </div>
 
-      <!-- Footer links + small info -->
+    <button id="agreeAndContinueBtn" class="sm-btn" disabled style="margin-top: 10px; width: 100%; opacity: 0.5;">Agree and Continue</button>
+  </div>
+</div>
+
+      <!-- Footer links -->
       <footer class="sm-card-footer">
         <div class="sm-footer-links">
           <a href="privacy.html">Privacy Policy</a>
@@ -73,123 +89,150 @@
   </main>
 
   <!-- Socket & Crypto -->
-  <script src="/crypto-js/crypto-js.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="crypto-js/crypto-js.js"></script>
+  <script src="https://blinkchat-i72t.onrender.com/socket.io/socket.io.js"></script>
 
-  <!-- App logic -->
   <script>
-    const socket = io();
-    const createBtn = document.getElementById('createRoomBtn');
-    const linkDisplay = document.getElementById('linkDisplay');
+window.addEventListener("load", () => {
 
-    // Create room
-    createBtn.addEventListener('click', () => {
-      createBtn.disabled = true;
-      createBtn.textContent = 'Creating Room...';
-      socket.emit('createRoom');
-    });
+  const socket = io("https://blinkchat-i72t.onrender.com", {
+    transports: ["websocket", "polling"]
+  });
+  // Add these new variable declarations at the top of your script:
+const termsModal = document.getElementById('termsModal');
+const acceptTermsCheckbox = document.getElementById('acceptTermsCheckbox');
+const agreeAndContinueBtn = document.getElementById('agreeAndContinueBtn');
 
-    socket.on('roomCreated', ({ roomId, expireAt }) => {
-      createBtn.disabled = false;
-      createBtn.textContent = 'Create Room';
+// --- T&C LOGIC ---
+if (!localStorage.getItem('sm_terms_accepted')) {
+    // Show the modal immediately if they haven't accepted
+    termsModal.classList.add('sm-modal-open');
+    termsModal.setAttribute('aria-hidden', 'false');
+}
 
-      const secretKey = CryptoJS.lib.WordArray.random(16).toString();
-      const link = `${window.location.origin}/join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
+// Enable the button only when the checkbox is checked
+acceptTermsCheckbox.addEventListener('change', () => {
+    agreeAndContinueBtn.disabled = !acceptTermsCheckbox.checked;
+    agreeAndContinueBtn.style.opacity = acceptTermsCheckbox.checked ? 1 : 0.5;
+});
 
-      linkDisplay.innerHTML = `
-        <div class="sm-link-box">
-          <div class="sm-link-label">Share this link with your friend:</div>
-          <div class="sm-link-row">
-            <input id="roomLinkInput" class="sm-link-input" type="text" value="${link}" readonly />
-            <button id="copyBtn" class="sm-btn sm-btn-copy">Copy</button>
-          </div>
-          <div class="sm-meta">
-            <span>Room expires at: ${new Date(expireAt).toLocaleTimeString()}</span>
-            <span id="countdown" class="sm-countdown"></span>
-          </div>
-          <div id="copyStatus" class="sm-copy-status" aria-hidden="true">✔ Copied!</div>
+// Hide modal and save status when 'Agree' is clicked
+agreeAndContinueBtn.addEventListener('click', () => {
+    localStorage.setItem('sm_terms_accepted', 'true');
+    termsModal.classList.remove('sm-modal-open');
+    termsModal.setAttribute('aria-hidden', 'true');
+    // If you initially hid the main content in CSS, show it here:
+    // document.querySelector('.sm-center-wrap').style.display = 'flex'; 
+});
+
+  const createBtn = document.getElementById('createRoomBtn');
+  const linkDisplay = document.getElementById('linkDisplay');
+
+  // Create room
+  createBtn.addEventListener('click', () => {
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating Room...';
+    socket.emit('createRoom');
+  });
+
+  socket.on('roomCreated', ({ roomId, expireAt }) => {
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create Room';
+
+    const secretKey = CryptoJS.lib.WordArray.random(16).toString();
+
+    // LOCAL join.html instead of full domain
+    const link = `join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
+
+    linkDisplay.innerHTML = `
+      <div class="sm-link-box">
+        <div class="sm-link-label">Share this link with your friend:</div>
+        <div class="sm-link-row">
+          <input id="roomLinkInput" class="sm-link-input" type="text" value="${link}" readonly />
+          <button id="copyBtn" class="sm-btn sm-btn-copy">Copy</button>
         </div>
-      `;
+        <div class="sm-meta">
+          <span>Room expires at: ${new Date(expireAt).toLocaleTimeString()}</span>
+          <span id="countdown" class="sm-countdown"></span>
+        </div>
+        <div id="copyStatus" class="sm-copy-status" aria-hidden="true">✔ Copied!</div>
+      </div>
+    `;
 
-      // countdown (40s redirect to join page)
-      let countdown = 40;
-      const countdownEl = document.getElementById('countdown');
-      if (countdownEl) countdownEl.textContent = ` • Redirecting in ${countdown}s`;
+    // Countdown redirect
+    let countdown = 40;
+    const countdownEl = document.getElementById('countdown');
+    const t = setInterval(() => {
+      countdown--;
+      countdownEl.textContent = ` • Redirecting in ${countdown}s`;
+      if (countdown <= 0) {
+        clearInterval(t);
 
-      const t = setInterval(() => {
-        countdown--;
-        if (countdownEl) countdownEl.textContent = ` • Redirecting in ${countdown}s`;
-        if (countdown <= 0) {
-          clearInterval(t);
-          window.location.href = `/join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
-        }
-      }, 1000);
-    });
-
-    // Copy handler (delegated because linkDisplay is dynamic)
-    document.addEventListener('click', (e) => {
-      if (e.target && e.target.id === 'copyBtn') {
-        const linkInput = document.getElementById('roomLinkInput');
-        const copyStatus = document.getElementById('copyStatus');
-        if (!linkInput) return;
-
-        // select + clipboard
-        linkInput.select();
-        linkInput.setSelectionRange(0, 99999);
-
-        navigator.clipboard.writeText(linkInput.value)
-          .then(() => {
-            if (copyStatus) {
-              copyStatus.style.opacity = '1';
-              copyStatus.setAttribute('aria-hidden', 'false');
-              setTimeout(() => {
-                if (copyStatus) {
-                  copyStatus.style.opacity = '0';
-                  copyStatus.setAttribute('aria-hidden', 'true');
-                }
-              }, 1500);
-            }
-          })
-          .catch(() => alert('Failed to copy link'));
+        // LOCAL redirect (inside app)
+        window.location.href = `join.html?room=${roomId}&key=${secretKey}&expireAt=${expireAt}`;
       }
-    });
+    }, 1000);
+  });
 
-    // Join modal controls
-    const joinBtnOpen = document.getElementById('openJoinWindowBtn');
-    const joinPopup = document.getElementById('joinRoomPopup');
-    const joinSubmit = document.getElementById('joinRoomSubmit');
-    const joinInput = document.getElementById('joinRoomInput');
-    const closeJoinPopup = document.getElementById('closeJoinPopup');
+  // Copy button
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'copyBtn') {
+      const linkInput = document.getElementById('roomLinkInput');
+      const copyStatus = document.getElementById('copyStatus');
 
-    function openJoin() {
-      joinPopup.style.display = 'grid';
-      joinPopup.setAttribute('aria-hidden', 'false');
-      setTimeout(() => joinInput.focus(), 60);
+      linkInput.select();
+      navigator.clipboard.writeText(linkInput.value).then(() => {
+        copyStatus.style.opacity = '1';
+        setTimeout(() => copyStatus.style.opacity = '0', 1500);
+      });
     }
-    function closeJoin() {
-      joinPopup.style.display = 'none';
-      joinPopup.setAttribute('aria-hidden', 'true');
-      joinInput.value = '';
-    }
+  });
 
-    joinBtnOpen.addEventListener('click', openJoin);
-    closeJoinPopup.addEventListener('click', closeJoin);
+  // Join popup
+  // ... existing JavaScript code ...
 
-    joinSubmit.addEventListener('click', () => {
-      const link = joinInput.value.trim();
-      if (!link) return alert('Please paste a valid link');
-      try {
-        const url = new URL(link);
-        window.location.href = url.href;
-      } catch {
-        alert('Invalid room link!');
-      }
-    });
+// Join popup elements
+const joinBtnOpen = document.getElementById('openJoinWindowBtn');
+const joinPopup = document.getElementById('joinRoomPopup');
+const joinSubmit = document.getElementById('joinRoomSubmit');
+const joinInput = document.getElementById('joinRoomInput');
+const closeJoinPopup = document.getElementById('closeJoinPopup');
 
-    // close modal on outside click
-    joinPopup.addEventListener('click', (ev) => {
-      if (ev.target === joinPopup) closeJoin();
-    });
-  </script>
+// --- FIXED OPEN LOGIC ---
+joinBtnOpen.addEventListener('click', () => {
+  // 1. Show the modal visually (triggers CSS animation)
+  joinPopup.classList.add('sm-modal-open');
+  // 2. Correctly set aria-hidden to false (accessible)
+  joinPopup.setAttribute('aria-hidden', 'false');
+  
+  // 3. Focus after a short delay (for animation)
+  setTimeout(() => {
+      joinInput.focus();
+  }, 50); 
+});
+
+// --- FIXED CLOSE LOGIC ---
+closeJoinPopup.addEventListener('click', () => {
+  // 1. Hide the modal visually (triggers CSS animation)
+  joinPopup.classList.remove('sm-modal-open');
+  // 2. Correctly set aria-hidden to true (hidden)
+  joinPopup.setAttribute('aria-hidden', 'true');
+  joinInput.value = '';
+  
+  // 3. Return focus to the button that opened it (good practice)
+  joinBtnOpen.focus();
+});
+
+
+  joinSubmit.addEventListener('click', () => {
+    const link = joinInput.value.trim();
+    if (!link) return alert('Please paste a valid link');
+
+    // INTERNAL navigation
+    window.location.href = link;
+  });
+
+});
+</script>
 </body>
 </html>
