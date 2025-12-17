@@ -1,212 +1,147 @@
-// server.js
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-const crypto = require('crypto');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+const crypto = require("crypto");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
-// =====================
-// 🧱 Security Middleware
-// =====================
+/* ===================== SECURITY ===================== */
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.jsdelivr.net"
-        ],
-        scriptSrcElem: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.jsdelivr.net"
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com"
-        ],
-        styleSrcElem: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com"
-        ],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        connectSrc: ["'self'", "ws:", "wss:"],
-        imgSrc: ["'self'", "data:"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Basic rate limiter
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
+    max: 100
   })
 );
 
-// =====================
-// 🌐 Static & Libraries
-// =====================
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/crypto-js', express.static(path.join(__dirname, 'node_modules/crypto-js')));
+/* ===================== STATIC ===================== */
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/crypto-js", express.static(path.join(__dirname, "node_modules/crypto-js")));
 
-// =====================
-// 💬 Room Storage
-// =====================
-const rooms = new Map(); // roomId → { createdAt }
+/* ===================== ROOM STORE ===================== */
+const rooms = new Map();
 
-// =====================
-// ⚡ Socket.IO Handlers
-// =====================
-io.on('connection', (socket) => {
-  console.log('🔗 Socket connected:', socket.id);
+/* Helper to generate a unique 6-digit passcode */
+function generateUniquePasscode() {
+  let passcode;
+  do {
+    passcode = Math.floor(100000 + Math.random() * 900000).toString();
+  } while (rooms.has(passcode)); // Ensure we don't overwrite an existing room
+  return passcode;
+}
 
-  // Create Room
- socket.on('createRoom', () => {
-  const roomId = crypto.randomBytes(8).toString('hex');
-  const expiresIn = 10 * 60 * 1000; // 🕒 10 minutes (change as needed)
-  const expireAt = Date.now() + expiresIn;
+/* ===================== SOCKET ===================== */
+io.on("connection", (socket) => {
+  console.log("Connected:", socket.id);
 
-  rooms.set(roomId, { createdAt: Date.now(), expireAt });
-  socket.emit('roomCreated', { roomId, expireAt });
+  /* ---------- CREATE ROOM ---------- */
+  socket.on("createRoom", () => {
+    const passcode = generateUniquePasscode();
+    const roomId = crypto.randomBytes(16).toString("hex"); // Stronger internal ID
+    const expiresIn = 10 * 60 * 1000; // 10 minutes
+    const expireAt = Date.now() + expiresIn;
 
-  // Auto delete after expiry
-  setTimeout(() => {
-    if (rooms.has(roomId)) {
-      rooms.delete(roomId);
-      io.to(roomId).emit('systemMessage', '⚠️ Room expired and has been closed.');
-      io.socketsLeave(roomId);
-    }
-  }, expiresIn);
-});
+    // Store internal roomId and expiry against the user-facing passcode
+    rooms.set(passcode, { roomId, expireAt });
 
-  // Join Room
-  socket.on('joinRoom', ({ roomId, name }) => {
-    if (!roomId || !rooms.has(roomId)) {
-      socket.emit('systemMessage', 'Room not found or expired.');
-      return;
-    }
-
-    const roomSet = io.sockets.adapter.rooms.get(roomId);
-    const occupantCount = roomSet ? roomSet.size : 0;
-
-    if (occupantCount >= 2) {
-      socket.emit('systemMessage', 'Room is full. Only two users allowed.');
-      return;
-    }
-
+    // Join the creator to the internal room immediately
     socket.join(roomId);
     socket.roomId = roomId;
-    socket.userName = name || 'Anonymous';
 
-    console.log(`👤 ${socket.userName} joined room ${roomId}`);
+    // Send passcode back to creator
+    socket.emit("roomCreated", { passcode, roomId, expireAt });
 
-    // Notify both users
-    io.to(roomId).emit('systemMessage', `${socket.userName} joined the room.`);
+    // Auto-cleanup
+    setTimeout(() => {
+      if (rooms.has(passcode)) {
+        rooms.delete(passcode);
+        io.to(roomId).emit("systemMessage", "⚠️ Room expired.");
+        io.socketsLeave(roomId);
+      }
+    }, expiresIn);
   });
 
-  // Send Message (E2EE payload)
-  socket.on('sendMessage', ({ roomId, message }) => {
-  const room = socket.roomId;  // Always trust server-stored value
+  /* ---------- JOIN ROOM ---------- */
+  socket.on("joinRoom", ({ passcode, name }) => {
+    const roomData = rooms.get(passcode);
+    
+    if (!roomData) {
+      socket.emit("systemMessage", "Invalid or expired passcode.");
+      return;
+    }
 
-  // Validate room
-  if (!room || !rooms.has(room)) {
-    socket.emit('systemMessage', 'Invalid or missing room.');
-    return;
-  }
+    const members = io.sockets.adapter.rooms.get(roomData.roomId);
+    if (members && members.size >= 2) {
+      socket.emit("systemMessage", "Room is full.");
+      return;
+    }
 
-  // Validate message
-  if (!message || typeof message !== "string") {
-    socket.emit('systemMessage', 'Empty or invalid message.');
-    return;
-  }
+    socket.join(roomData.roomId);
+    socket.roomId = roomData.roomId;
+    socket.userName = name || "Anonymous";
 
-  const senderName = socket.userName || "User";
+    // Notify others in the room
+    io.to(roomData.roomId).emit("systemMessage", `${socket.userName} joined.`);
+    
+    // Crucial: Tell the joining client which internal roomId to use for redirection
+    socket.emit("joinSuccess", { 
+        roomId: roomData.roomId, 
+        expireAt: roomData.expireAt 
+    });
+  });
 
-  console.log(`📩 Encrypted message from ${senderName} in room ${room}`);
+  /* ---------- MESSAGE ---------- */
+  socket.on("sendMessage", ({ message }) => {
+    if (!socket.roomId) return;
+    socket.to(socket.roomId).emit("newMessage", {
+      message,
+      from: socket.userName
+    });
+  });
 
-  // Relay encrypted message to the other user only
-  socket.to(room).emit('newMessage', {
-    message,
-    from: senderName,
+  socket.on("typing", () => {
+    if (socket.roomId) socket.to(socket.roomId).emit("showTyping");
+  });
+
+  socket.on("stopTyping", () => {
+    if (socket.roomId) socket.to(socket.roomId).emit("hideTyping");
+  });
+
+  socket.on("quitRoom", () => {
+    if (!socket.roomId) return;
+    socket.leave(socket.roomId);
+    socket.to(socket.roomId).emit("systemMessage", `${socket.userName} left.`);
+  });
+
+  socket.on("disconnect", () => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("systemMessage", `${socket.userName || "User"} disconnected.`);
+    }
   });
 });
 
-
-
-  // Typing indicator
-  socket.on('typing', (roomId) => {
-    if (!roomId) return;
-    socket.to(roomId).emit('showTyping', { from: socket.id });
-  });
-
-  socket.on('stopTyping', (roomId) => {
-    if (!roomId) return;
-    socket.to(roomId).emit('hideTyping', { from: socket.id });
-  });
-
-  // Quit room
-  socket.on('quitRoom', (roomId) => {
-    socket.leave(roomId);
-    socket.to(roomId).emit('systemMessage', `${socket.userName} left the room.`);
-    const roomSet = io.sockets.adapter.rooms.get(roomId);
-    if (!roomSet || roomSet.size === 0) rooms.delete(roomId);
-  });
-
-  // Disconnect
-  socket.on('disconnect', () => {
-    const roomId = socket.roomId;
-    if (roomId) {
-      socket.to(roomId).emit('systemMessage', `${socket.userName || 'A user'} disconnected.`);
-      const roomSet = io.sockets.adapter.rooms.get(roomId);
-      if (!roomSet || roomSet.size === 0) rooms.delete(roomId);
-    }
-    console.log('❌ Disconnected:', socket.userName || socket.id);
-  });
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-
-// =====================
-// 🕒 Cleanup (15 min)
-///////////////////////
-// Clean up expired rooms every minute
-setInterval(() => {
-  const now = Date.now();
-  rooms.forEach((room, id) => {
-    if (now > room.expireAt) {
-      rooms.delete(id);
-      io.to(id).emit('systemMessage', '⚠️ Room expired and has been closed.');
-      io.socketsLeave(id);
-    }
-  });
-}, 60 * 1000);
-
-
-
-// =====================
-// 🚀 Start Server
-// =====================
-server.listen(PORT, () => console.log(`Running on ${PORT}`));
-
-
-
-
