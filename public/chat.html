@@ -87,18 +87,31 @@
 
 <script>
 (() => {
-    // Use local socket automatically available inside WebView
     const socket = io("https://blinkchat-i72t.onrender.com", {
       transports: ["websocket", "polling"]
     });
 
     const params = new URLSearchParams(window.location.search);
-    const roomId = params.get("room");
-    const secretKey = params.get("key");
-    const expireAt = Number(params.get("expireAt"));
+    
+    // --- PART 1: SESSION PERSISTENCE (THE FIX) ---
+    // Try to get params from URL, if not there, try localStorage
+    let roomId = params.get("room") || localStorage.getItem("last_room_id");
+    let secretKey = params.get("key") || localStorage.getItem("last_secret_key");
+    let expireAt = Number(params.get("expireAt")) || Number(localStorage.getItem("last_expire_at"));
+
+    // Save them immediately so they are available for the next reload
+    if (roomId && secretKey) {
+        localStorage.setItem("last_room_id", roomId);
+        localStorage.setItem("last_secret_key", secretKey);
+        localStorage.setItem("last_expire_at", expireAt.toString());
+    } else {
+        // If still no room data, we can't stay here
+        window.location.href = "index.html";
+        return;
+    }
 
     const messagesDiv = document.getElementById("messages");
-    const input = document.getElementById("messageInput"); // Target for saving/restoring draft
+    const input = document.getElementById("messageInput");
     const sendBtn = document.getElementById("sendBtn");
     const timerBox = document.getElementById("timerBox");
     const typingIndicator = document.getElementById("typingIndicator");
@@ -107,55 +120,48 @@
     const quitBtn = document.getElementById("quitBtn");
 
     document.getElementById("roomIdBox").textContent = `Room: ${roomId}`;
-
     let myName = localStorage.getItem("blinkchat_name") || "Anonymous";
-    // Add this immediately after the input variable declaration in chat.html
-    input.addEventListener('input', function () {
-    this.style.height = 'auto'; // Reset height to recalculate scrollHeight
-    this.style.height = (this.scrollHeight) + 'px'; // Set height to fit content
-});
 
-    // ----------------------------------------------------
-    // PART 1: RESTORE DRAFT ON PAGE LOAD (The Fix)
-    // Runs immediately if the page was forced to reload by the OS.
-    // ----------------------------------------------------
+    // Auto-expand textarea logic
+    input.addEventListener('input', function () {
+        this.style.height = 'auto'; 
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Restore Draft & Scroll
     const savedDraft = localStorage.getItem('chat_draft');
     if (savedDraft) {
         input.value = savedDraft;
-        localStorage.removeItem('chat_draft'); // Clean up the storage
+        localStorage.removeItem('chat_draft');
+        // Trigger resize
+        input.dispatchEvent(new Event('input'));
     }
     
     const savedScroll = localStorage.getItem('chat_scroll');
     if (savedScroll) {
         messagesDiv.scrollTop = savedScroll;
-        localStorage.removeItem('chat_scroll'); // Clean up the storage
+        localStorage.removeItem('chat_scroll');
     }
-    // ----------------------------------------------------
 
-
-    // JOIN ROOM
+    // --- SOCKET LOGIC ---
     socket.emit("joinRoom", { roomId, name: myName });
 
-    // ROOM TIMER
     const timerInterval = setInterval(() => {
         const diff = expireAt - Date.now();
         if (diff <= 0) {
             timerBox.textContent = "Expired";
-            socket.emit("quitRoom", roomId);
             clearInterval(timerInterval);
-
-            // Go back to home inside app
-            return setTimeout(() => {
-              window.location.href = "index.html";
-            }, 1500);
+            socket.emit("quitRoom", roomId);
+            cleanSession();
+            setTimeout(() => { window.location.href = "index.html"; }, 1500);
+            return;
         }
-
         const m = Math.floor(diff / 60000);
         const s = Math.floor((diff % 60000) / 1000);
         timerBox.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
     }, 1000);
 
-    // TYPING
+    // Typing logic
     let typingTimer;
     input.addEventListener("input", () => {
         socket.emit("typing", roomId);
@@ -163,50 +169,29 @@
         typingTimer = setTimeout(() => socket.emit("stopTyping", roomId), 1200);
     });
 
-    socket.on("showTyping", () => {
-        typingIndicator.style.display = "block";
-        clearTimeout(typingIndicator._hide);
-        typingIndicator._hide = setTimeout(() => {
-            typingIndicator.style.display = "none";
-        }, 1500);
-    });
+    socket.on("showTyping", () => { typingIndicator.style.display = "block"; });
+    socket.on("hideTyping", () => { typingIndicator.style.display = "none"; });
 
-    socket.on("hideTyping", () => typingIndicator.style.display = "none");
-
-    // EMOJI
-    emojiBtn.addEventListener("click", () => {
-        emojiPanel.style.display = emojiPanel.style.display === "none" ? "block" : "none";
-    });
-
-    emojiPanel.addEventListener("click", (e) => {
-        if (e.target.classList.contains("emoji")) {
-            input.value += e.target.textContent;
-            input.focus();
-        }
-    });
-
-    // SEND MESSAGE (Function definition remains the same)
+    // Send/Receive
     function sendMessage() {
         const msg = input.value.trim();
         if (!msg) return;
-
         const encrypted = CryptoJS.AES.encrypt(msg, secretKey).toString();
         socket.emit("sendMessage", { message: encrypted });
-
         addMessage(myName + " (You)", msg, "right");
         input.value = "";
+        input.style.height = 'auto';
     }
 
     sendBtn.addEventListener("click", sendMessage);
     input.addEventListener("keydown", e => e.key === "Enter" && sendMessage());
 
-    // RECEIVE MESSAGE (Logic remains the same)
     socket.on("newMessage", ({ message, from }) => {
         try {
             const decrypted = CryptoJS.AES.decrypt(message, secretKey).toString(CryptoJS.enc.Utf8);
-            addMessage(from || "Friend", decrypted || "[decrypt error]", "left");
-        } catch {
-            addMessage("System", "[Decryption error]", "center");
+            addMessage(from || "Friend", decrypted, "left");
+        } catch (e) {
+            addMessage("System", "[Decryption Error]", "center");
         }
     });
 
@@ -215,43 +200,38 @@
     function addMessage(name, text, side) {
         const div = document.createElement("div");
         div.className = `sm-msg ${side}`;
-
         if (side !== "center") {
             const tag = document.createElement("div");
             tag.style.cssText = "font-size:0.7rem;margin-bottom:4px;color:#6c84c5;";
             tag.textContent = name;
             div.appendChild(tag);
         }
-
         const body = document.createElement("div");
         body.style.whiteSpace = "pre-wrap";
         body.textContent = text;
         div.appendChild(body);
-
         messagesDiv.appendChild(div);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // QUIT (Logic remains the same)
+    function cleanSession() {
+        localStorage.removeItem("last_room_id");
+        localStorage.removeItem("last_secret_key");
+        localStorage.removeItem("last_expire_at");
+    }
+
     quitBtn.addEventListener("click", () => {
-      if (!confirm("Leave this chat room now?")) return;
-
-      const removeName = confirm("Remove your saved display name?");
-      if (removeName) localStorage.removeItem("blinkchat_name");
-
-      socket.emit("quitRoom", roomId);
-      window.location.href = "index.html";
+        if (!confirm("Leave this chat room?")) return;
+        cleanSession();
+        socket.emit("quitRoom", roomId);
+        window.location.href = "index.html";
     });
-    
-    // ----------------------------------------------------
-    // PART 2: SAVE DRAFT WHEN PAGE IS HIDDEN (The Fix)
-    // Fired right before the page process is killed by the OS.
-    // ----------------------------------------------------
+
+    // Save draft on background
     window.addEventListener('pagehide', () => {
         localStorage.setItem('chat_draft', input.value);
         localStorage.setItem('chat_scroll', messagesDiv.scrollTop);
     });
-    // ----------------------------------------------------
 
 })();
 </script>
