@@ -67,70 +67,88 @@ io.on("connection", (socket) => {
     }, expiresIn);
   });
 
-  /* ---------- JOIN ROOM ---------- */
-  socket.on("joinRoom", ({ passcode, roomId, name }) => {
-    let roomData = null;
+ /* ---------- JOIN ROOM ---------- */
+socket.on("joinRoom", ({ passcode, roomId, name }) => {
+  let roomData = null;
 
-    // 1. Try to find room by Passcode (Joiner)
-    if (passcode) {
-      roomData = rooms.get(String(passcode).trim());
-    } 
-    // 2. Try to find room by RoomId (Creator or Reload)
-    else if (roomId) {
-      const pCode = roomIds.get(roomId);
-      if (pCode) roomData = rooms.get(pCode);
-    }
-    
-    if (!roomData) {
-      socket.emit("systemMessage", "Invalid or expired passcode.");
-      return;
-    }
+  if (passcode) {
+    roomData = rooms.get(String(passcode).trim());
+  } else if (roomId) {
+    const pCode = roomIds.get(roomId);
+    if (pCode) roomData = rooms.get(pCode);
+  }
+  
+  if (!roomData) {
+    socket.emit("systemMessage", "Invalid or expired passcode.");
+    return;
+  }
 
-    const members = io.sockets.adapter.rooms.get(roomData.roomId);
-    if (members && members.size >= 2 && !socket.rooms.has(roomData.roomId)) {
-      socket.emit("systemMessage", "Room is full.");
-      return;
-    }
+  const members = io.sockets.adapter.rooms.get(roomData.roomId);
+  
+  // Check if this is a "Reconnection" or a "Fresh Join"
+  // If the user is already technically in the room (from a previous socket), we stay silent
+  const isReconnecting = members && members.size > 0;
 
-    socket.join(roomData.roomId);
-    socket.roomId = roomData.roomId;
-    socket.userName = name || "Anonymous";
+  if (members && members.size >= 2 && !socket.rooms.has(roomData.roomId)) {
+    socket.emit("systemMessage", "Room is full.");
+    return;
+  }
 
-    // Inform the client exactly which IDs to use from now on
-    socket.emit("joinSuccess", { 
-        roomId: roomData.roomId, 
-        passcode: roomIds.get(roomData.roomId),
-        expireAt: roomData.expireAt 
-    });
+  socket.join(roomData.roomId);
+  socket.roomId = roomData.roomId;
+  socket.userName = name || "Anonymous";
 
-    io.to(roomData.roomId).emit("systemMessage", `${socket.userName} joined.`);
+  socket.emit("joinSuccess", { 
+      roomId: roomData.roomId, 
+      passcode: roomIds.get(roomData.roomId),
+      expireAt: roomData.expireAt 
   });
 
-  /* ---------- MESSAGE & TYPING ---------- */
-  socket.on("sendMessage", ({ message }) => {
-    if (!socket.roomId) return;
-    socket.to(socket.roomId).emit("newMessage", { message, from: socket.userName });
-  });
+  // ONLY show the message if it's the first time joining or after a long absence
+  if (!isReconnecting) {
+    io.to(roomData.roomId).emit("systemMessage", `${socket.userName} joined the chat.`);
+  }
+});
 
-  socket.on("typing", () => {
-    if (socket.roomId) socket.to(socket.roomId).emit("showTyping");
-  });
+/* ---------- MESSAGE & TYPING ---------- */
+socket.on("sendMessage", ({ message }) => {
+  if (!socket.roomId) return; 
+  socket.to(socket.roomId).emit("newMessage", { message, from: socket.userName });
+});
 
-  socket.on("stopTyping", () => {
-    if (socket.roomId) socket.to(socket.roomId).emit("hideTyping");
-  });
+socket.on("typing", () => {
+  if (socket.roomId) socket.to(socket.roomId).emit("showTyping");
+});
 
-  socket.on("quitRoom", () => {
-    if (!socket.roomId) return;
-    socket.to(socket.roomId).emit("systemMessage", `${socket.userName} left.`);
-    socket.leave(socket.roomId);
-  });
+socket.on("stopTyping", () => {
+  if (socket.roomId) socket.to(socket.roomId).emit("hideTyping");
+});
 
-  socket.on("disconnect", () => {
-    if (socket.roomId) {
-      socket.to(socket.roomId).emit("systemMessage", `${socket.userName || "User"} disconnected.`);
-    }
-  });
+socket.on("quitRoom", () => {
+  if (!socket.roomId) return;
+  socket.to(socket.roomId).emit("systemMessage", `${socket.userName} left.`);
+  socket.leave(socket.roomId);
+  socket.roomId = null;
+});
+
+/* ---------- IMPROVED DISCONNECT (Silent Grace Period) ---------- */
+socket.on("disconnect", () => {
+  const rId = socket.roomId;
+  const uName = socket.userName || "User";
+
+  if (rId) {
+    // 5-second grace period for app switching
+    setTimeout(() => {
+      const currentRoom = io.sockets.adapter.rooms.get(rId);
+      
+      // We only alert the other user if the person is TRULY gone (room size < 2)
+      // and hasn't reconnected with a new socket ID in those 5 seconds.
+      if (!currentRoom || currentRoom.size < 2) {
+        io.to(rId).emit("systemMessage", `${uName} went offline.`);
+      }
+    }, 5000); 
+  }
+});
 });
 
 server.listen(PORT, () => {
