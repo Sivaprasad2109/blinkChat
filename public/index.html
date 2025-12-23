@@ -86,9 +86,7 @@ window.addEventListener("load", () => {
 
   // 1. Create room logic
   createBtn.addEventListener('click', () => {
-    // Basic check to prevent multiple clicks
     if (createBtn.disabled) return;
-    
     createBtn.disabled = true;
     createBtn.textContent = 'Generating Code...';
     socket.emit('createRoom');
@@ -98,15 +96,14 @@ window.addEventListener("load", () => {
     createBtn.disabled = false;
     createBtn.textContent = 'Create Room';
 
-    // 1. Generate local encryption key (never sent to server)
-    const secretKey = CryptoJS.lib.WordArray.random(16).toString();
+    // FIX: Generate key BASED on the passcode so User 2 can recreate it locally
+    const secretKey = CryptoJS.SHA256(passcode).toString();
     
-    // 2. CRITICAL: Save all parameters to survive app-switching/reloads
-    // We store the passcode for the user, but the roomId for the socket
-    localStorage.setItem('saved_room_link', passcode); 
-    localStorage.setItem('saved_secret_key', secretKey);
-    localStorage.setItem('saved_room_id', roomId); 
-    localStorage.setItem('saved_expire_at', expireAt);
+    // Save for persistence (Syncing User 1)
+    localStorage.setItem('last_room_id', roomId); 
+    localStorage.setItem('last_passcode', passcode);
+    localStorage.setItem('last_secret_key', secretKey);
+    localStorage.setItem('last_expire_at', expireAt);
 
     linkDisplay.innerHTML = `
       <div class="sm-link-box" style="text-align: center;">
@@ -121,26 +118,17 @@ window.addEventListener("load", () => {
       </div>
     `;
 
-    let countdown = 40;
+    let countdown = 15;
     const countdownEl = document.getElementById('countdown');
     const t = setInterval(() => {
       countdown--;
-      
-      localStorage.setItem('saved_redirect_seconds', countdown.toString());
-      
       if (countdownEl) {
         countdownEl.textContent = ` • Redirecting to chat in ${countdown}s`;
       }
 
       if (countdown <= 0) {
         clearInterval(t);
-        
-        // Clean up temporary index storage
-        localStorage.removeItem('saved_room_link');
-        localStorage.removeItem('saved_redirect_seconds');
-        
-        // IMPORTANT: We redirect using the roomId so chat.html knows the socket address
-        // but we can keep the passcode in the URL for reference if needed
+        // Redirect with all 3 critical keys: Hex ID, Passcode, and Derived AES Key
         window.location.href = `join.html?room=${roomId}&p=${passcode}&key=${secretKey}&expireAt=${expireAt}`;
       }
     }, 1000);
@@ -155,29 +143,23 @@ window.addEventListener("load", () => {
 
   joinBtnOpen.addEventListener('click', () => {
     joinRoomPopup.classList.add('sm-modal-open');
-    joinRoomPopup.setAttribute('aria-hidden', 'false');
     setTimeout(() => joinInput.focus(), 50); 
   });
 
   closeJoinPopup.addEventListener('click', () => {
     joinRoomPopup.classList.remove('sm-modal-open');
-    joinRoomPopup.setAttribute('aria-hidden', 'true');
   });
 
   joinSubmit.addEventListener('click', () => {
     const passcode = joinInput.value.trim();
     if (passcode.length !== 6) return alert('Please enter a 6-digit passcode');
-
     joinSubmit.disabled = true;
     joinSubmit.textContent = "Connecting...";
-    
-    // Emit to server to check if passcode exists
     socket.emit('joinRoom', { passcode: passcode });
   });
 
-  // Server confirms the passcode is valid and sends the REAL roomId
   socket.on('joinSuccess', ({ roomId, passcode, expireAt }) => {
-      // Success! Move to join.html using the internal roomId
+      // For the Joiner, the key is derived from the passcode in join.html
       window.location.href = `join.html?room=${roomId}&p=${passcode}&expireAt=${expireAt}`;
   });
 
