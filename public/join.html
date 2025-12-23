@@ -1,104 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="theme-color" content="#0a3d91">
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Join Room – SMessage</title>
-
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Room</title><link rel="stylesheet" href="style.css" />
 </head>
-
 <body class="sm-page-bg">
-
   <main class="sm-center-wrap">
     <section class="sm-app-card">
-      <header class="sm-card-header">
-        <h1 class="sm-app-title">Join Chat Room</h1>
-        <p class="sm-subtitle">Enter your display name to join securely</p>
-      </header>
-
-      <input
-        type="text"
-        id="nameInput"
-        placeholder="Your name..."
-        class="sm-message-input"
-        style="width:100%; font-size:1rem;"
-      />
-
+      <h1 class="sm-app-title">Join Chat</h1>
+      <input type="text" id="nameInput" placeholder="Your name..." class="sm-message-input" />
       <div id="roomDisplay" style="margin: 15px 0; font-weight: 600; color: #0a3d91;"></div>
-
       <button id="joinBtn" class="sm-btn sm-big">Join Chat</button>
-
-      <div id="status" style="margin-top:10px;color:#455670;font-size:0.9rem;"></div>
-
-      <footer class="sm-card-footer">
-        <div class="sm-footer-links">
-          <a href="privacy.html">Privacy Policy</a>
-          <a href="terms.html">Terms of Service</a>
-        </div>
-      </footer>
     </section>
   </main>
-
+  <script src="crypto-js/crypto-js.js"></script>
 <script>
 (() => {
     const params = new URLSearchParams(window.location.search);
-    
-    // 1. Extract parameters from URL
-    const roomId = params.get("room");     // Long Hex ID (Server socket room)
-    const passcode = params.get("p");      // 6-digit code (User-facing)
-    let key = params.get("key");           // AES Encryption Key
-    const expireAt = params.get("expireAt");
+    let roomId = params.get("room") || localStorage.getItem("last_room_id");
+    let passcode = params.get("p") || localStorage.getItem("last_passcode");
+    let expireAt = params.get("expireAt") || localStorage.getItem("last_expire_at");
 
-    const joinBtn = document.getElementById("joinBtn");
+    if (!roomId || roomId === "null") { window.location.href = "index.html"; return; }
+
+    // DERIVE KEY FROM PASSCODE (Crucial for User 2)
+    const secretKey = CryptoJS.SHA256(passcode).toString();
+
+    document.getElementById("roomDisplay").textContent = `Room Code: ${passcode}`;
     const nameInput = document.getElementById("nameInput");
-    const roomDisplay = document.getElementById("roomDisplay");
+    nameInput.value = localStorage.getItem("blinkchat_name") || "";
 
-    // 2. Validate session - If no roomId, we can't connect to the socket
-    if (!roomId) {
-        alert("Session expired or invalid link.");
-        window.location.href = "index.html";
-        return;
-    }
-
-    // 3. UI: Display the 6-digit passcode to the user
-    roomDisplay.textContent = passcode ? `Room Code: ${passcode}` : `Joining Private Room`;
-
-    // 4. KEY RECOVERY: Critical for the Creator/Re-joiner
-    // If the key is missing from the URL, check LocalStorage
-    if (!key) {
-        key = localStorage.getItem(`key_${passcode}`) || localStorage.getItem("last_secret_key");
-    }
-
-    // 5. USERNAME PREFERENCE: Autofill saved name
-    const savedName = localStorage.getItem("blinkchat_name");
-    if (savedName) nameInput.value = savedName;
-
-    // 6. JOIN ACTION
-    joinBtn.addEventListener("click", () => {
+    document.getElementById("joinBtn").addEventListener("click", () => {
         const name = nameInput.value.trim() || "Anonymous";
-        
-        // Save name for future use
         localStorage.setItem("blinkchat_name", name);
+        localStorage.setItem("last_room_id", roomId);
+        localStorage.setItem("last_passcode", passcode);
+        localStorage.setItem("last_secret_key", secretKey);
+        localStorage.setItem("last_expire_at", expireAt);
 
-        // PERSISTENCE PRE-SAVE:
-        // We save these to localStorage BEFORE moving to chat.html. 
-        // This acts as a backup if chat.html reloads and loses URL params.
-        if (roomId) localStorage.setItem("last_room_id", roomId);
-        if (passcode) localStorage.setItem("last_passcode", passcode);
-        if (key) localStorage.setItem("last_secret_key", key);
-        if (expireAt) localStorage.setItem("last_expire_at", expireAt);
-
-        // Navigate to chat
-        // We pass 'p' (passcode) so chat.html can display it and use it for re-joins
-        const chatUrl = `chat.html?room=${roomId}&p=${passcode || ''}&key=${key || ''}&expireAt=${expireAt}`;
-        window.location.href = chatUrl;
+        window.location.href = `chat.html?room=${roomId}&p=${passcode}&key=${secretKey}&expireAt=${expireAt}`;
     });
 })();
 </script>
-
 </body>
 </html>
-
