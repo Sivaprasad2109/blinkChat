@@ -36,7 +36,7 @@ io.on("connection", (socket) => {
   socket.on("createRoom", () => {
     const passcode = generateUniquePasscode();
     const roomId = crypto.randomBytes(16).toString("hex");
-    const expiresIn = 40 * 60 * 1000; 
+    const expiresIn = 15 * 60 * 1000; 
     const expireAt = Date.now() + expiresIn;
 
     rooms.set(passcode, { roomId, expireAt });
@@ -106,3 +106,4 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+
